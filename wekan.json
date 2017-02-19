@@ -1,0 +1,214 @@
+#!/usr/bin/python
+
+import json
+import os
+import datetime
+import sys
+
+def getConf():
+	return json.loads(open(os.path.dirname(os.path.abspath(__file__)) + "/conf.json").read())
+
+def getCommand(conf):
+	return "ssh " + conf["server_user"] + "@" + conf["server"] + " docker exec " + conf["docker"] + " /usr/bin/mongoexport -u " + conf["bd_user"] + " -p " + conf["bd_passwd"] + " -d " + conf["bd"] + " -c "
+	
+def getData(collections, command):
+	data = {}
+	for collection in collections:
+		result = os.popen(command + collection).read().split("\n")
+		tmp = []
+		for line in result:
+			try:
+				tmp.append(json.loads(line))
+			except:
+				print "ERROR"+line
+				continue
+		data[collection] = tmp
+	return data
+	
+################################################################################################
+	
+def getBoards(dboards):
+	boards = []
+	for board in dboards:
+		if "modifiedAt" in board:
+			lastModification = board["modifiedAt"]["$date"]
+		else:
+			lastModification = board["createdAt"]["$date"]
+		boards.append([board["_id"],
+						board["title"],
+						board["createdAt"]["$date"],
+						lastModification,
+						board["archived"],
+						board["members"],
+						board["labels"]])
+	return boards
+
+def addLists(boards, lists):
+	newBoards = []
+	for board in boards:
+		tmp = []
+		delThis = []
+		for v in lists:
+			if v["boardId"] == board[0]:
+				if "modifiedAt" in board:
+					lastModification = v["modifiedAt"]["$date"]
+				elif "updatedAt" in board:
+					lastModification = v["updatedAt"]["$date"]
+				else:
+					lastModification = v["createdAt"]["$date"]
+				tmp.append([v["_id"],
+							v["title"],
+							v["createdAt"]["$date"],
+							lastModification,
+							v["archived"]])
+		board.append(tmp)
+		newBoards.append(board)
+	return newBoards
+	
+def addUsersName(boards, users):
+	newBoards = []
+	for board in boards:
+		tmp = {}
+		for i, member in enumerate(board[5]):
+			for user in users:
+				if user["_id"] == member["userId"]:
+					tmp[user["_id"]] = [user["username"], member["isAdmin"]]
+					if "isActive" in member:
+						tmp[user["_id"]].append(member["isActive"])
+					break
+		board[5] = tmp
+		newBoards.append(board)
+	return newBoards
+	
+def setBoards(data):
+	return addUsersName(addLists(getBoards(data["boards"]), data["lists"]), data["users"])
+
+################################################################################################
+
+def getNbComments(comments):
+	nbComments = {}
+	for comment in comments:
+		if comment["cardId"] in nbComments:
+			nbComments[comment["cardId"]] += 1
+		else:
+			nbComments[comment["cardId"]] = 1
+	return nbComments
+	
+def getArchivedDateAndLastActivity(activities):
+	archivedCards = {}
+	lastActivities = {}
+	for activity in activities:
+		if activity["activityType"] == "archivedCard":
+			if activity["cardId"] in archivedCards:
+				if datetime.datetime.strptime(activity["createdAt"]["$date"], "%Y-%m-%dT%H:%M:%S.%fZ") < datetime.datetime.strptime(archivedCards[activity["cardId"]], "%Y-%m-%dT%H:%M:%S.%fZ"):
+					archivedCards[activity["cardId"]] = activity["createdAt"]["$date"]
+			else:
+				archivedCards[activity["cardId"]] = activity["createdAt"]["$date"]
+		elif activity["activityType"] != "createCard" and "cardId" in activity:
+			if activity["cardId"] in lastActivities:
+				if datetime.datetime.strptime(activity["createdAt"]["$date"], "%Y-%m-%dT%H:%M:%S.%fZ") > datetime.datetime.strptime(lastActivities[activity["cardId"]], "%Y-%m-%dT%H:%M:%S.%fZ"):
+					lastActivities[activity["cardId"]] = activity["createdAt"]["$date"]
+			else:
+				lastActivities[activity["cardId"]] = activity["createdAt"]["$date"]
+		
+	return archivedCards, lastActivities
+	
+def getCards(cards, nbComments, archivedDate, lastActivity, activities, showTitleList):
+	newCards = {}
+	for card in cards:
+		commentsForCard = 0
+		try:
+			if card["_id"] in nbComments:
+				commentsForCard = nbComments[card["_id"]]
+			if card["boardId"] not in newCards:
+				newCards[card["boardId"]] = []
+			labels = []
+			if "labelIds" in card:
+				labels = card["labelIds"]
+			members = []
+			if "members" in card:
+				members = card["members"]
+			newCards[card["boardId"]].append({"id" : card["_id"],
+											"createdBy" : card["userId"],
+											"labels" : labels,
+											"list" : card["listId"],
+											"createdAt" : card["createdAt"]["$date"],
+											"isArchived" : card["archived"],
+											"members" : members,
+											"nbComments" : commentsForCard,
+											"dailyEvents" : getDailyEvents(activities, card["_id"]),
+											"storyPoint" : getStoryPoint(card["title"])})
+			if card["archived"] and card["_id"] in archivedDate:
+				newCards[card["boardId"]][-1]["archivedAt"] = archivedDate[card["_id"]]
+			if card["_id"] in lastActivity:
+				newCards[card["boardId"]][-1]["lastModification"] = lastActivity[card["_id"]]
+			if card["boardId"] in showTitleList:
+				newCards[card["boardId"]][-1]["title"] = card["title"]
+		except:
+			continue
+	return newCards
+		
+def setCards(data, showTitleOf):
+	archivedDates, lastActivities = getArchivedDateAndLastActivity(data["activities"])
+	return getCards(data["cards"], getNbComments(data["card_comments"]), archivedDates, lastActivities, data["activities"], showTitleOf)
+	
+################################################################################################
+
+def getDailyEvents(activities, cardId):
+	nb = 0
+	for activity in activities:
+		if "cardId" in activity:
+			if activity["cardId"] == cardId:
+				if datetime.datetime.strptime(activity["createdAt"]["$date"], "%Y-%m-%dT%H:%M:%S.%fZ").date() == datetime.datetime.today().date():
+					nb += 1
+	return nb
+
+def getStoryPoint(title):
+	tmp = ""
+	for l in title:
+		if l in ['.', ',', ' ', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0']:
+			tmp += l
+		else:
+			break
+	try:
+		return float(tmp)
+	except ValueError:
+		return 0
+		
+################################################################################################
+
+def wekanLogstash(boards, cards):
+	for board in boards:
+		try:
+			if board[0] in cards:
+				labels = {}
+				for label in board[6]:
+					try:
+						labels[label["_id"]] = label["name"]
+					except:
+						labels[label["_id"]] = label["color"]
+				lists = {}
+				for list in board[7]:
+					lists[list[0]] = list[1]
+				for card in cards[board[0]]:
+					card["board"] = board[1]
+					for i in range(0, len(card["labels"])):
+						card["labels"][i] = labels[card["labels"][i]]
+					for i in range(0, len(card["members"])):
+						card["members"][i] = board[5][card["members"][i]][0]
+					card["createdBy"] = board[5][card["createdBy"]][0]
+					card["list"] = lists[card["list"]]
+					print json.dumps(card)
+		except:
+			continue
+
+################################################################################################
+	
+conf = getConf()
+data = getData(conf["collections"], getCommand(conf))
+
+boards = setBoards(data)
+
+cards = setCards(data, conf["showTitleOf"])
+
+wekanLogstash(boards, cards)
