@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 #
-# logstach.py
+# logstash.py
 #
-# Simple tool that will print cards data for logstach (ELK Kibana)
+# Simple tool that will print cards data for logstash (ELK Kibana)
 #
 # Author: Florent MONTHEL (fmonthel@flox-arts.net)
 #
@@ -55,7 +55,7 @@ def getStoryPoint(title) :
 	except ValueError :
 		return 0
 
-# Function that will populate dict for logstach
+# Function that will populate dict for logstash
 def getCardsData() :
 	
 	# BDD

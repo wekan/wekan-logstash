@@ -1,1 +1,1 @@
-# wekna-logstach
+# wekan-logstash
