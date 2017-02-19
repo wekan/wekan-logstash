@@ -124,15 +124,16 @@ def getCardsData() :
 				data[ card["_id"] ]['title'] = ""
 			# Get Labels name
 			data[ card["_id"] ]["labels"] = list()
-			for labelId in card["labelIds"] :
-				# We will parse board label
-				for label in tmp_board["labels"] :
-					if labelId == label["_id"] :
-						if "name" not in label or label["name"] == '' :
-							data[ card["_id"] ]["labels"].append(label["color"])
-						else :
-							data[ card["_id"] ]["labels"].append(label["name"])
-			if len(card["labelIds"]) == 0 :
+			if "labelIds" in card :
+				for labelId in card["labelIds"] :
+					# We will parse board label
+					for label in tmp_board["labels"] :
+						if labelId == label["_id"] :
+							if "name" not in label or label["name"] == '' :
+								data[ card["_id"] ]["labels"].append(label["color"])
+							else :
+								data[ card["_id"] ]["labels"].append(label["name"])
+			if "labelIds" not in card or len(card["labelIds"]) == 0 :
 				data[ card["_id"] ]['labels'].append('No label')
 		else :
 			data[ card["_id"] ]['board'] = 'Board not found'
@@ -141,12 +142,13 @@ def getCardsData() :
 		
 		# Get members data
 		data[ card["_id"] ]["members"] = list()
-		for member in card["members"] :
-			if users.find({"_id": member}).count() == 1 :
-				data[ card["_id"] ]['members'].append(users.find_one({"_id": member})['username'])
-			else :
-				data[ card["_id"] ]['members'].append('User not found')
-		if len(card["members"]) == 0 :
+		if "members" in card :
+			for member in card["members"] :
+				if users.find({"_id": member}).count() == 1 :
+					data[ card["_id"] ]['members'].append(users.find_one({"_id": member})['username'])
+				else :
+					data[ card["_id"] ]['members'].append('User not found')
+		if "members" not in card or len(card["members"]) == 0 :
 			data[ card["_id"] ]['members'].append('Unassigned')
 		
 		# Get daily events and update lastModification of card
