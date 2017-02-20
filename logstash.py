@@ -87,13 +87,13 @@ def getCardsData() :
 			# Get date of archive process
 			if activities.find({"cardId": card["_id"], "activityType": "archivedCard"}).count() >= 1 :
 				data[ card["_id"] ]["archivedAt"] = activities.find_one({"cardId": card["_id"], "activityType": "archivedCard"})["createdAt"]
-				data[ card["_id"] ]["archivedAt"] = datetime.datetime.strftime(data[ card["_id"] ]["archivedAt"], "%Y-%m-%dT%H:%M:%S.%fZ")
+				data[ card["_id"] ]["archivedAt"] = datetime.datetime.strftime(data[ card["_id"] ]["archivedAt"], "%Y-%m-%dT%H:%M:%S.000Z")
 		
 		# Get storypoint data
 		data[ card["_id"] ]['storyPoint'] = getStoryPoint(card["title"])
 		
 		# Get created date data
-		data[ card["_id"] ]['createdAt'] = datetime.datetime.strftime(card["createdAt"], "%Y-%m-%dT%H:%M:%S.%fZ")
+		data[ card["_id"] ]['createdAt'] = datetime.datetime.strftime(card["createdAt"], "%Y-%m-%dT%H:%M:%S.000Z")
 		
 		# Get last activity date data (will be updated after)
 		data[ card["_id"] ]['lastModification'] = card["dateLastActivity"]
@@ -163,7 +163,7 @@ def getCardsData() :
 				data[ card["_id"] ]['lastModification'] = activity["createdAt"]
 		
 		# Fornat the lastModification date now
-		data[ card["_id"] ]['lastModification'] = datetime.datetime.strftime(data[ card["_id"] ]['lastModification'], "%Y-%m-%dT%H:%M:%S.%fZ")
+		data[ card["_id"] ]['lastModification'] = datetime.datetime.strftime(data[ card["_id"] ]['lastModification'], "%Y-%m-%dT%H:%M:%S.000Z")
 		
 	# End, time to return dict :)
 	return data
