@@ -77,7 +77,10 @@ def getCardsData() :
 	
 		# Create index on id of the card
 		data[ card["_id"] ] = dict()
-	
+		
+		# Get id
+		data[ card["_id"] ]['id'] = card["_id"]
+		
 		# Get archived data
 		data[ card["_id"] ]['isArchived'] = card["archived"]
 		if card["archived"] == True :
