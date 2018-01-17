@@ -102,7 +102,7 @@ def getCardsData() :
 		data[ card["_id"] ]['nbComments'] = card_comments.count({"cardId": card["_id"]})
 		
 		# Get creator name
-		if users.find({"_id": card["userId"]}).count() == 1 :
+		if users.find({"_id": card["userId"]}).count() == 1 and 'username' in users.find_one({"_id": card["userId"]}).keys() :
 			data[ card["_id"] ]['createdBy'] = users.find_one({"_id": card["userId"]})['username']
 		else :
 			data[ card["_id"] ]['createdBy'] = 'User not found'
@@ -131,7 +131,7 @@ def getCardsData() :
 				for labelId in card["labelIds"] :
 					# We will parse board label
 					for label in tmp_board["labels"] :
-						if labelId == label["_id"] :
+						if "_id" in label.keys() and labelId == label["_id"] :
 							if "name" not in label or label["name"] == '' :
 								data[ card["_id"] ]["labels"].append(label["color"])
 							else :
@@ -147,7 +147,7 @@ def getCardsData() :
 		data[ card["_id"] ]["members"] = list()
 		if "members" in card :
 			for member in card["members"] :
-				if users.find({"_id": member}).count() == 1 :
+				if users.find({"_id": member}).count() == 1 and 'username' in users.find_one({"_id": member}).keys() :
 					data[ card["_id"] ]['members'].append(users.find_one({"_id": member})['username'])
 				else :
 					data[ card["_id"] ]['members'].append('User not found')
